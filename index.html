@@ -1423,13 +1423,30 @@ function desejosBox(){
 /* ---------- NOTÍCIAS (Steam ou qualquer RSS) ---------- */
 function feedUrl(u){ const id=steamId(u); if(id&&!/^https?:\/\/(?!store\.steampowered)/i.test(u)) return `https://store.steampowered.com/feeds/news/app/${id}/?l=brazilian`; return safeUrl(u); }
 const textoDe=html=>{ try{ return (new DOMParser().parseFromString(String(html||""),"text/html").body.textContent||"").replace(/\s+/g," ").trim(); }catch(e){ return ""; } };
+function lerFeed(xml){
+  const doc=new DOMParser().parseFromString(xml,"text/xml");
+  if(doc.querySelector("parsererror")) throw new Error("feed inválido");
+  const tx=(el,sel)=>{ const n=el.querySelector(sel); return n?n.textContent.trim():""; };
+  const imgDe=html=>{ try{ const d=new DOMParser().parseFromString(String(html||""),"text/html"); const i=d.querySelector("img"); return i?safeUrl(i.getAttribute("src")):null; }catch(e){ return null; } };
+  const itens=[...doc.querySelectorAll("item")].map(it=>{ const desc=tx(it,"description"); const enc=it.querySelector("enclosure"); return {t:textoDe(tx(it,"title")),url:tx(it,"link"),data:tx(it,"pubDate"),img:(enc&&safeUrl(enc.getAttribute("url")))||imgDe(desc)||"",resumo:textoDe(desc).slice(0,200)}; });
+  if(itens.length) return itens;
+  return [...doc.querySelectorAll("entry")].map(it=>{ const l=it.querySelector("link"); const desc=tx(it,"summary")||tx(it,"content"); return {t:textoDe(tx(it,"title")),url:l?l.getAttribute("href"):"",data:tx(it,"updated")||tx(it,"published"),img:imgDe(desc)||"",resumo:textoDe(desc).slice(0,200)}; });
+}
 async function carregaFeed(url,forcar){
   const feed=feedUrl(url); if(!feed) throw new Error("link inválido");
   const key="sqpr-news:"+feed;
   if(!forcar){ try{ const c=JSON.parse(localStorage.getItem(key)||"null"); if(c&&Date.now()-c.t<3600e3) return c.items; }catch(e){} }
-  const r=await fetch("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(feed));
-  const j=await r.json(); if(j.status!=="ok") throw new Error(j.message||"falhou");
-  const items=(j.items||[]).slice(0,8).map(x=>({t:textoDe(x.title),url:x.link,data:x.pubDate,img:safeUrl(x.thumbnail)||safeUrl(x.enclosure&&x.enclosure.link)||"",resumo:textoDe(x.description).slice(0,200)}));
+  let items=null;
+  try{ /* leitor público que devolve o feed com permissão para o navegador ler */
+    const r=await fetch("https://r.jina.ai/"+feed,{headers:{"X-Return-Format":"html"}});
+    if(r.ok) items=lerFeed(await r.text());
+  }catch(e){}
+  if(!items){ /* plano B */
+    const r=await fetch("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(feed));
+    const j=await r.json(); if(j.status!=="ok") throw new Error(j.message||"falhou");
+    items=(j.items||[]).map(x=>({t:textoDe(x.title),url:x.link,data:x.pubDate,img:safeUrl(x.thumbnail)||safeUrl(x.enclosure&&x.enclosure.link)||"",resumo:textoDe(x.description).slice(0,200)}));
+  }
+  items=items.slice(0,8);
   try{ localStorage.setItem(key,JSON.stringify({t:Date.now(),items})); }catch(e){}
   return items;
 }
@@ -1454,7 +1471,7 @@ function noticiasBox(){
       carregaFeed(sel.url,forcar).then(items=>{
         lista.replaceChildren(...(items.length?items.map(n=>h("a",{class:"news-i",href:safeUrl(n.url)||"#",target:"_blank",rel:"noopener noreferrer"},
           n.img?h("img",{src:n.img,alt:"",loading:"lazy"}):null,
-          h("div",null,h("b",{text:n.t}),h("small",{text:n.data?new Date(n.data.replace(" ","T")).toLocaleDateString("pt-BR"):""}),n.resumo?h("span",{text:n.resumo+"…"}):null))):[vazio("Sem notícias nessa fonte.")]));
+          h("div",null,h("b",{text:n.t}),h("small",{text:n.data&&!isNaN(new Date(n.data))?new Date(n.data).toLocaleDateString("pt-BR"):""}),n.resumo?h("span",{text:n.resumo+"…"}):null))):[vazio("Sem notícias nessa fonte.")]));
       }).catch(()=>lista.replaceChildren(h("p",{class:"acct-msg",text:"Não deu para carregar as notícias agora (sem internet ou o serviço de feed falhou)."}),h("button",{type:"button",class:"btn-ghost",onclick:()=>carregar(true)},ic("reset"),"Tentar de novo")));
     };
     box.append(h("div",{class:"news-tabs"},fontes.map(f=>h("button",{type:"button",class:"chip"+(f===sel?" on":""),onclick:()=>{ N.sel=f.id; touch(); render(); }},f.nome||"Fonte")),
