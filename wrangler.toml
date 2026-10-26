@@ -1,0 +1,16 @@
+# Cloudflare Pages — SQPR Gamer Social Work
+name = "sqpr-gamer-social-work"
+pages_build_output_dir = "public"
+compatibility_date = "2025-09-01"
+
+# Variáveis NÃO secretas (os segredos vão no painel: Settings → Variables and Secrets → "Encrypt")
+[vars]
+FIREBASE_PROJECT_ID = "sqpr-hunter"
+ALLOWED_ORIGINS = "https://sqpr-gamer-social-work.pages.dev"
+
+# Capturas da comunidade: armazenamento PRIVADO no R2.
+# 1) Crie o bucket "sqpr-posts" em Cloudflare → R2.  2) Só então tire o "#" das 3 linhas abaixo.
+# (Se o bucket não existir, o deploy falha — por isso começa comentado.)
+# [[r2_buckets]]
+# binding = "POSTS_BUCKET"
+# bucket_name = "sqpr-posts"

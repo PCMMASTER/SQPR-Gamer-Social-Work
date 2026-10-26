@@ -1,0 +1,21 @@
+{
+  "name": "sqpr-gamer-social-work",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "test:api": "node tests/api.test.mjs",
+    "test:connect": "node tests/connect.test.mjs",
+    "test:ui": "node tests/ui.test.mjs && node tests/ui-connect.test.mjs",
+    "test:layout": "node tests/layout-tabs.test.mjs && node tests/layout-overflow.test.mjs",
+    "test:rules": "firebase emulators:exec --only firestore \"node tests/rules.test.mjs\"",
+    "test:feed": "node tests/feed.test.mjs",
+    "test:ui-feed": "node tests/ui-feed.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.152.0",
+    "firebase-tools": "15.34.1",
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "^12.0.0"
+  }
+}

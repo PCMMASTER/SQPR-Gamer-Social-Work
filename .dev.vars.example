@@ -1,0 +1,6 @@
+# Copie para .dev.vars SÓ na sua máquina (nunca envie para o GitHub).
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"seu-projeto","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"exemplo@seu-projeto.iam.gserviceaccount.com"}
+# Feed (opcionais em teste local):
+# OPENAI_API_KEY=cole-aqui-so-na-sua-maquina
+# ADMIN_UIDS=uid-do-firebase-do-administrador
+# MAX_IMAGE_MB=5

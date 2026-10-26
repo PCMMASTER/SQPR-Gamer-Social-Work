@@ -1,0 +1,79 @@
+rules_version = '2';
+
+// SQPR Gamer Social Work — regras do Firestore.
+// Regra geral: o navegador só LÊ os dados sociais. Toda gravação social passa pelas
+// Cloudflare Pages Functions (/api/*), que validam permissão, bloqueios e limites e usam
+// a conta de serviço. Nada aqui é aberto para leitura/gravação irrestrita.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Plano/hub privado de cada pessoa (já existia).
+    match /planos/{uid} {
+      allow read, write: if isMe(uid);
+    }
+
+    // Perfil público: qualquer pessoa logada lê um perfil pelo id.
+    // Busca (list) só retorna perfis que aceitaram aparecer na busca.
+    // Nunca contém e-mail, tokens ou dados de login.
+    match /profiles/{uid} {
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.searchable == true;
+      allow write: if false;
+    }
+
+    // Índice de @nomes únicos: só para checar disponibilidade.
+    match /handles/{handle} {
+      allow get: if signedIn();
+      allow list, write: if false;
+    }
+
+    // Pedidos de amizade: só remetente e destinatário enxergam.
+    match /friendRequests/{id} {
+      allow read: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow write: if false;
+    }
+
+    // Amizades: só os dois envolvidos enxergam.
+    match /friendships/{id} {
+      allow read: if signedIn() && request.auth.uid in resource.data.users;
+      allow write: if false;
+    }
+
+    // Bloqueios: só quem bloqueou enxerga a própria lista.
+    match /blocks/{id} {
+      allow read: if signedIn() && resource.data.blocker == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Situação da conta (suspensão) — só a própria pessoa lê; só o servidor grava.
+    match /accountStatus/{uid} {
+      allow get: if isMe(uid);
+      allow list, write: if false;
+    }
+
+    // Contas conectadas (Discord/Steam/Xbox): só o dono lê; só o servidor grava.
+    // Tokens ficam em connectionSecrets (criptografados) e NUNCA são legíveis pelo navegador.
+    match /connections/{id} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+    match /connectionSecrets/{id} { allow read, write: if false; }
+    match /externalLinks/{id} { allow read, write: if false; }
+    match /oauthStates/{id} { allow read, write: if false; }
+
+    // Feed (capturas e chamados): lido e gravado SÓ pela API, que aplica visibilidade,
+    // bloqueios e moderação. Imagens ficam no R2 privado e só saem por /api/img se aprovadas.
+    match /posts/{id} { allow read, write: if false; }
+
+    // Denúncias, limites de frequência, auditoria: somente servidor.
+    match /reports/{id} { allow read, write: if false; }
+    match /rateLimits/{id} { allow read, write: if false; }
+    match /moderationActions/{id} { allow read, write: if false; }
+
+    // Qualquer outra coleção: fechada.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
